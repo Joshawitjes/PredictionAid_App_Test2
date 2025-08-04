@@ -1,6 +1,5 @@
 # To run type in terminal:
 # from Anaconda Prompt: conda activate tool_app, then code . and then from here the rest
-# cd Tool_App
 # python -m streamlit run Main.py or C:\Users\sdv.werkstudent\.conda\envs\tool_app\python.exe -m streamlit run Main.py
 import streamlit as st
 from streamlit import __main__
@@ -37,12 +36,13 @@ Use the sidebar to navigate between the different available tools in the Predict
 ############
 # Inleidend tekstje schrijven
 # Correlatie matrix filter automatiseren
+# RF: decision tree vaste foto inpluggen for runtime
 # Summary result comparison tabel Section 6.
 # Manual aanpassen hier en daar
 # Eventueel confidence intervals toevoegen aan de metrics voor prediction range
+# Woensdag: deployen via Sietse/algemene account
 
 # Later nog over nadenken?
 ############
 # kubus volume kan je niet aanpassen ! Hier zitten limieten aan
 # navigeren makkelijker maken, onthouden geschiedenis, Variable Tool in subkopje
-# Eventueel predictions Variable Tool verbeteren (voor nu weggehaald)

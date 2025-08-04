@@ -18,7 +18,6 @@ if st.button("Test Snowflake Connection"):
         conn.close()
     except Exception as e:
         st.error(f"Connection failed: {e}")
-# ...existing code...
 
 ########################################################################
 # Page 2: OLS Regression

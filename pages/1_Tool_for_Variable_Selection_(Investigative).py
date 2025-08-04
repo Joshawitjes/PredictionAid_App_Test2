@@ -4,12 +4,6 @@
 import streamlit as st
 import pandas as pd
 
-#sys.path.append(str(Path(__file__).resolve().parent.parent))
-#sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# from utils import Functions as fn
-# from pathlib import Path
-# import sys 
-
 #################################
 # Page 1: Functions
 #################################
