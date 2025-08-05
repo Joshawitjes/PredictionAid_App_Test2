@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.snowflake_utils import get_snowflake_connection
+#from utils.snowflake_utils import get_snowflake_connection
 
 import pandas as pd
 import statsmodels.api as sm
@@ -11,13 +11,13 @@ import matplotlib.pyplot as plt
 # Add a page configuration for multi-page navigation
 st.set_page_config(page_title="OLS Regression (Linear)")
 
-if st.button("Test Snowflake Connection"):
-    try:
-        conn = get_snowflake_connection()
-        st.success("Connected to Snowflake!")
-        conn.close()
-    except Exception as e:
-        st.error(f"Connection failed: {e}")
+#if st.button("Test Snowflake Connection"):
+    #try:
+        #conn = get_snowflake_connection()
+        #st.success("Connected to Snowflake!")
+        #conn.close()
+    #except Exception as e:
+        #st.error(f"Connection failed: {e}")
 
 ########################################################################
 # Page 2: OLS Regression

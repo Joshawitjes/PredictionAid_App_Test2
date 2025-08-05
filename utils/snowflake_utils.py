@@ -1,6 +1,6 @@
-import os
-from dotenv import load_dotenv
-import snowflake.connector
+#import os
+#from dotenv import load_dotenv
+#import snowflake.connector
 
 def get_snowflake_connection():
     from dotenv import load_dotenv
