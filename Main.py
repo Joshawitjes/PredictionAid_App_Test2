@@ -5,6 +5,7 @@ import streamlit as st
 from streamlit import __main__
 from PIL import Image
 import os
+st.write("App loaded successfully!")
 
 # Get the directory where this script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))
