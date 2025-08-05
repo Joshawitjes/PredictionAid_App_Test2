@@ -3,7 +3,7 @@
 # python -m streamlit run Main.py or C:\Users\sdv.werkstudent\.conda\envs\tool_app\python.exe -m streamlit run Main.py
 import streamlit as st
 st.write("App loaded successfully!")
-from streamlit import __main__
+#from streamlit import __main__
 from PIL import Image
 import os
 
