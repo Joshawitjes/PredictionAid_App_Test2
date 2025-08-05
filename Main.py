@@ -2,10 +2,10 @@
 # from Anaconda Prompt: conda activate tool_app, then code . and then from here the rest
 # python -m streamlit run Main.py or C:\Users\sdv.werkstudent\.conda\envs\tool_app\python.exe -m streamlit run Main.py
 import streamlit as st
+st.write("App loaded successfully!")
 from streamlit import __main__
 from PIL import Image
 import os
-st.write("App loaded successfully!")
 
 # Get the directory where this script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))
