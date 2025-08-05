@@ -24,7 +24,6 @@ venv\Scripts\activate # should give (venv)
 pip install -r requirements.txt
 
 # Run streamlit app from within the Tool_App folder
-cd Tool_App
 python -m streamlit run Main.py
 ```
 
@@ -44,21 +43,21 @@ The main dependencies include:
 ## Project Structure
 ```
 PredictionAid_App/
+├── pages/               # Streamlit pages
+│   ├── 1_Tool_for_Variable_Selection_(Investigative).py
+│   ├── 2_OLS_Regression_(Linear).py
+│   └── 3_Random_Forest_AI_(NonLinear).py
+└── utils/               # Utility functions
+    ├── __pycache__/
+    └── snowflake_utils.py
+├── __init__.py
+├── DesignAID_logo.png
+├── DeVoogt_logo.jpg
+├── Feadship_logo.jpg
+├── Main.py              # Main Streamlit application
 ├── README.md
-├── requirements.txt         # Python dependencies
-└── Tool_App/
-    ├── __init__.py
-    ├── Main.py              # Main Streamlit application
-    ├── DesignAID_logo.png
-    ├── DeVoogt_logo.jpg
-    ├── Feadship_logo.jpg
-    ├── pages/               # Streamlit pages
-    │   ├── 1_Tool_for_Variable_Selection_(Investigative).py
-    │   ├── 2_OLS_Regression_(Linear).py
-    │   └── 3_Random_Forest_AI_(NonLinear).py
-    └── utils/               # Utility functions
-        ├── __pycache__/
-        └── snowflake_utils.py
+├── requirements.txt         # Python dependencies  
+└── runtime.txt          
 ```
 
 ## Features
