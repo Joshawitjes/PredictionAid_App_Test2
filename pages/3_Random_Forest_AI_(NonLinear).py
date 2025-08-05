@@ -1,7 +1,7 @@
+import streamlit as st
 ########################################################################
 # Page 3: Random Forest AI (Nonlinear)
 ########################################################################
-import streamlit as st
 import pandas as pd
 import numpy as np
 import seaborn as sns
