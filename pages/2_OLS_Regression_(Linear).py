@@ -361,8 +361,8 @@ if uploaded_file:
         for col in x_columns:
             input_values[col] = st.number_input(f"Enter value for {col}:", value=0.0)
 
-        # Confidence level selector
-        confidence_level = st.selectbox("Select confidence level:", [90, 95, 99], index=1)
+        # Confidence level (fixed at 95%)
+        confidence_level = 95
 
         # Prediction logic
         if st.button("Predict"):

@@ -58,12 +58,11 @@ Advanced nonlinear modeling using Random Forest regression. This tool handles co
 # To do:
 ############
 # Correlatie matrix filter automatiseren
-# Manual aanpassen hier en daar --> invoegen in app
 # toevoegen min/max van elke chosen feature --> error als je buiten range gaat
-# CI standaard op 95
 # Uitleg bij Predictions/Residuals
-# Ook CI bij RF toevoegen
 # Readme file improven
 # uitleg plaatje met wat format voor dataset hoort te zijn
+
+# Manual aanpassen hier en daar --> invoegen in app
 # Manual voor OLS en RF?
 # Woensdag: deployen via Sietse/algemene account --> last minute mijn nieuwste code in Feadship
