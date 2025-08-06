@@ -63,4 +63,7 @@ Advanced nonlinear modeling using Random Forest regression. This tool handles co
 # CI standaard op 95
 # Uitleg bij Predictions/Residuals
 # Ook CI bij RF toevoegen
-# Woensdag: deployen via Sietse/algemene account
+# Readme file improven
+# uitleg plaatje met wat format voor dataset hoort te zijn
+# Manual voor OLS en RF?
+# Woensdag: deployen via Sietse/algemene account --> last minute mijn nieuwste code in Feadship
