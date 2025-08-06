@@ -58,9 +58,9 @@ Advanced nonlinear modeling using Random Forest regression. This tool handles co
 # To do:
 ############
 # Correlatie matrix filter automatiseren
-# Manual aanpassen hier en daar
+# Manual aanpassen hier en daar --> invoegen in app
+# toevoegen min/max van elke chosen feature --> error als je buiten range gaat
+# CI standaard op 95
+# Uitleg bij Predictions/Residuals
+# Ook CI bij RF toevoegen
 # Woensdag: deployen via Sietse/algemene account
-
-############
-# kubus volume kan je niet aanpassen ! Hier zitten limieten aan
-# navigeren makkelijker maken, onthouden geschiedenis, Variable Tool in subkopje
