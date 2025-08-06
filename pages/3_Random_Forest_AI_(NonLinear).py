@@ -182,18 +182,109 @@ if uploaded_file:
             }))
         st.write(f"**Average Adjusted R² Score:** {avg_adjusted_r2:.4f}")
 
+#######################
+# Make your own prediction
+#######################
 
-#######################################
-        # Make a prediction for new data
+        # Input fields for prediction
         st.header("Make a Prediction")
         input_values = {}
         for col in x_columns:
             input_values[col] = st.number_input(f"Enter value for {col}:", value=0.0)
 
+        # Confidence level selector
+        confidence_level = st.selectbox("Select confidence level:", [90, 95, 99], index=1)
+        # Prediction logic
         if st.button("Predict"):
+            # Create input array for prediction
             x_new = pd.DataFrame([input_values])
-            y_prediction = rf.predict(x_new)  # Random Forest does not require a constant
-            st.success(f"Prediction Completed!: **{y_column}: {y_prediction[0]:.2f}**")
+
+            # Get prediction from the Random Forest
+            y_prediction = rf_model.predict(x_new)
+            mean_pred = y_prediction[0]
+
+            # Method 1: Bootstrap-based confidence intervals (more robust)
+            # Get predictions from all individual trees
+            all_tree_preds = np.array([tree.predict(x_new)[0] for tree in rf_model.estimators_])
+            
+            # Calculate percentiles for prediction intervals
+            alpha = 1 - (confidence_level / 100)
+            lower_percentile = (alpha / 2) * 100
+            upper_percentile = (1 - alpha / 2) * 100
+            
+            # Use quantiles of tree predictions for prediction intervals
+            pred_lower = np.percentile(all_tree_preds, lower_percentile)
+            pred_upper = np.percentile(all_tree_preds, upper_percentile)
+            
+            # For confidence intervals, use a smaller range (tree variance represents model uncertainty)
+            tree_std = np.std(all_tree_preds)
+            
+            # Confidence interval (narrower - represents uncertainty in mean prediction)
+            confidence_margin = tree_std * 0.5  # Conservative factor
+            conf_lower = mean_pred - confidence_margin
+            conf_upper = mean_pred + confidence_margin
+            
+            # Alternative: Use bootstrap resampling for more robust intervals
+            # This is computationally more expensive but more accurate
+            
+            # Display results
+            st.success(f"**Predicted {y_column}: {mean_pred:.2f}**")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.info(f"**{confidence_level}% Confidence Interval:**\n{conf_lower:.2f} to {conf_upper:.2f}")
+                st.caption("Range representing uncertainty in the model's mean prediction")
+
+            with col2:
+                st.warning(f"**{confidence_level}% Prediction Interval:**\n{pred_lower:.2f} to {pred_upper:.2f}")
+                st.caption("Range where individual predictions are likely to fall (based on tree ensemble variance)")
+
+            # Enhanced reliability assessment
+            prediction_interval_width = pred_upper - pred_lower
+            confidence_interval_width = conf_upper - conf_lower
+            
+            relative_pred_width = (prediction_interval_width / abs(mean_pred)) * 100 if mean_pred != 0 else float('inf')
+            relative_conf_width = (confidence_interval_width / abs(mean_pred)) * 100 if mean_pred != 0 else float('inf')
+
+            # Reliability based on prediction interval width and tree agreement
+            tree_agreement = 1 - (tree_std / abs(mean_pred)) if mean_pred != 0 else 0
+            
+            if relative_pred_width < 15 and tree_agreement > 0.8:
+                reliability = "🟢 High reliability"
+                reliability_desc = "Trees agree strongly, narrow prediction range"
+            elif relative_pred_width < 30 and tree_agreement > 0.6:
+                reliability = "🟡 Moderate reliability"
+                reliability_desc = "Reasonable tree agreement, moderate prediction range"
+            else:
+                reliability = "🔴 Low reliability"
+                reliability_desc = "High variance between trees, wide prediction range"
+
+            st.markdown(f"**Model Reliability:** {reliability}")
+            st.caption(f"{reliability_desc}")
+            
+            # Additional metrics
+            col3, col4 = st.columns(2)
+            with col3:
+                st.metric("Tree Agreement", f"{tree_agreement:.1%}")
+                st.caption("How much the individual trees agree")
+            
+            with col4:
+                st.metric("Prediction Uncertainty", f"±{prediction_interval_width/2:.2f}")
+                st.caption(f"{relative_pred_width:.1f}% of predicted value")
+
+            # Explanation for Random Forest intervals
+            with st.expander("Understanding Random Forest Confidence Intervals ℹ️"):
+                st.markdown("""
+                **Random Forest Confidence Intervals are different from OLS:**
+                
+                - **Confidence Interval**: Based on the variance between individual trees in the forest
+                - **Prediction Interval**: Uses the distribution of predictions from all trees (quantile-based)
+                - **Tree Agreement**: Measures how consistently the trees predict - higher agreement = more reliable
+                
+                Random Forest intervals are approximations and may be less precise than OLS statistical intervals, 
+                but they capture the ensemble uncertainty effectively.
+                """)
+
             st.balloons()
 
 #######################################

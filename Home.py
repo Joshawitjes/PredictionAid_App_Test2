@@ -24,22 +24,43 @@ with col2:
 st.title("PredictionAID App")
 
 st.markdown("""
-Use the sidebar to navigate between the different available tools in the PredictionAID App. The App contains three tools with different purposes. These will be explained below:
-- **Prediction: OLS Regression (linear)**: This tool allows you to perform Ordinary Least Squares (OLS) regression analysis on your dataset. You can upload your dataset, select dependent and independent variables, and run the regression to predict outcomes. 
-- **Prediction: Random Forest AI (nonlinear)**: This tool allows you to perform Random Forest regression analysis on your dataset. Similar to OLS Regression, you can upload your dataset, select dependent and independent variables, and run the regression to predict outcomes using a more complex model that can capture non-linear relationships.
-- **Selection: Variable Importances Tool (linear + nonlinear)**: This tool helps you to explore and evaluate the relationships between different variables in your dataset. You can visualize correlations and other statistical properties of your data. The goal is to filter the most important variables for predictive purposes.
-- **Correlation Matrix**: This tool provides a visual representation of the correlation between different variables in your dataset. You can filter the matrix to focus on specific variables and understand their relationships better.""")
+Use the sidebar to navigate between the different available tools in the PredictionAID App. The App contains three specialized tools for predictive modeling and variable analysis:
 
+## 🔍 **Tool for Variable Selection (Investigative)**
+This comprehensive tool helps you identify the most important variables for prediction by comparing three different modeling approaches:
+- **Linear SVM Regression** - Identifies linear relationships between features and target variables
+- **Nonlinear SVM Regression (RBF kernel)** - Captures complex, nonlinear patterns in your data  
+- **Elastic Net Regression** - Combines Lasso and Ridge penalties for robust variable selection
+
+The tool provides performance comparisons, feature importance rankings, and recommendations for which variables to use in your final predictive models. **Start here** to understand your data and select the best features before moving to the prediction tools.
+
+## 📊 **OLS Regression (Linear)**
+Perform Ordinary Least Squares regression analysis for linear relationships. Upload your dataset, select dependent and independent variables, and get:
+- Detailed regression coefficients and statistical significance
+- Model performance metrics (R², MSE, RMSE)
+- Actual vs predicted visualizations
+- Individual predictions for new data points
+
+## 🌲 **Random Forest AI (NonLinear)**  
+Advanced nonlinear modeling using Random Forest regression. This tool handles complex, non-linear relationships that linear models cannot capture:
+- Feature importance rankings based on Random Forest algorithms
+- Cross-validation performance metrics
+- Robust predictions that work well with complex datasets
+- Visual decision tree examples to understand the modeling process
+
+## 💡 **Recommended Workflow**
+1. **Start with the Variable Selection Tool** to identify the most important features in your dataset
+2. **Use OLS Regression** if your data shows primarily linear relationships
+3. **Use Random Forest** if your data contains complex, nonlinear patterns
+4. Compare results between linear and nonlinear approaches to find the best model for your specific use case
+""")
 
 # To do:
 ############
-# Inleidend tekstje schrijven
 # Correlatie matrix filter automatiseren
 # Manual aanpassen hier en daar
-# Eventueel confidence intervals toevoegen aan de metrics voor prediction range
 # Woensdag: deployen via Sietse/algemene account
 
-# Later nog over nadenken?
 ############
 # kubus volume kan je niet aanpassen ! Hier zitten limieten aan
 # navigeren makkelijker maken, onthouden geschiedenis, Variable Tool in subkopje
