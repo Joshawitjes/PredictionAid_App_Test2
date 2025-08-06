@@ -1,6 +1,6 @@
 # To run type in terminal
 # from Anaconda Prompt: conda activate tool_app, then code . and then from here the rest
-# python -m streamlit run Main.py or C:\Users\sdv.werkstudent\.conda\envs\tool_app\python.exe -m streamlit run Main.py
+# python -m streamlit run Home.py or C:\Users\sdv.werkstudent\.conda\envs\tool_app\python.exe -m streamlit run Home.py
 import streamlit as st
 #from streamlit import __main__
 from PIL import Image
@@ -22,7 +22,6 @@ with col2:
     st.image(image3, use_container_width=True)
 
 st.title("PredictionAID App")
-#st.write(os.getcwd())
 
 st.markdown("""
 Use the sidebar to navigate between the different available tools in the PredictionAID App. The App contains three tools with different purposes. These will be explained below:
@@ -36,8 +35,6 @@ Use the sidebar to navigate between the different available tools in the Predict
 ############
 # Inleidend tekstje schrijven
 # Correlatie matrix filter automatiseren
-# RF: decision tree vaste foto inpluggen for runtime
-# Summary result comparison tabel Section 6.
 # Manual aanpassen hier en daar
 # Eventueel confidence intervals toevoegen aan de metrics voor prediction range
 # Woensdag: deployen via Sietse/algemene account

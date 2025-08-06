@@ -11,6 +11,8 @@ from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.tree import plot_tree
+import os
+from PIL import Image
 
 st.header("📈 Random Forest AI (Nonlinear)")
 st.write("Upload your dataset and predict outcomes using Random Forest regression.")
@@ -199,6 +201,14 @@ if uploaded_file:
         st.subheader("Example Decision Tree Visualization")
         st.write("An example of 1 of the 100 underlying decision trees that the Random Forest model creates on the background. Keep in mind that this is just meant as intuition for the ones that are interested in what the model actually does.")
         st.write("No relevant information can be deducted from this figure!")
-        fig, ax = plt.subplots(figsize=(15, 10))
-        plot_tree(rf.estimators_[0], feature_names=x.columns, filled=True, rounded=True, ax=ax)
-        st.pyplot(fig)
+        
+        # Use relative path to the image file
+        image1 = "decision_tree.png"
+        if os.path.exists(image1):
+            st.image(image1, width=800, use_container_width=False)
+        else:
+            st.warning("The image 'decision_tree.png' was not found in the current directory. Please make sure the file exists.")
+
+        #fig, ax = plt.subplots(figsize=(15, 10))
+        #plot_tree(rf.estimators_[0], feature_names=x.columns, filled=True, rounded=True, ax=ax)
+        #st.pyplot(fig)
