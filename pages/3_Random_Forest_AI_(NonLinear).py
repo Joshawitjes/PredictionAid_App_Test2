@@ -369,9 +369,23 @@ if uploaded_file:
 
         # Input fields for prediction
         st.header("4. Make a Prediction")
+        # Add some introductory text outside the loop
+        st.markdown("Please enter values for each variable within the specified ranges:")
+
         input_values = {}
         for col in x_columns:
-            input_values[col] = st.number_input(f"Enter value for {col}:", value=0.0)
+            col_min = float(table[col].min())
+            col_max = float(table[col].max())
+            
+            value = st.number_input(
+                f"**{col}** (range: {col_min:.1f} - {col_max:.1f}):",
+                min_value=col_min,
+                max_value=col_max,
+                value=col_min,
+                key=f"input_{col}",
+                help=f"Enter a value between {col_min:.1f} and {col_max:.1f}"
+            )
+            input_values[col] = value
 
         # Confidence level (fixed at 95%)
         confidence_level = 95
