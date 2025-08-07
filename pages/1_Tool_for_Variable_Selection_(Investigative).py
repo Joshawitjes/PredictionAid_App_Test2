@@ -3,6 +3,7 @@ import streamlit as st
 # Page 1: Variable Selection Tool
 ########################################################################
 import pandas as pd
+import os
 
 #################################
 # Page 1: Functions
@@ -429,10 +430,31 @@ The goal of this tool is to <b>explore and understand the underlying patterns in
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
+st.markdown("---")
 
 # File upload
 st.subheader("1. Upload your dataset")
+st.markdown("""
+Upload your dataset to perform multivariable linear regression and make predictions.
+
+**How should your dataset look?**
+- The first row must contain clear column names (e.g., `N.o. Sales`, `Price`).
+- Each following row should represent a single observation (e.g., a project, a client, etc.).
+- All columns you want to use for regression must contain only numerical values (no text, dates, or mixed types).
+- Avoid empty rows or columns, and ensure there are no merged cells.
+- The file should be in Excel (`.xlsx`) or CSV (`.csv`) format.
+
+**Example of a well-formatted dataset:**
+""")
+
+# Use relative path to the image file
+image1 = "example_dataset.png"
+if os.path.exists(image1):
+    st.image(image1, width=500, use_container_width=False)
+else:
+    st.warning("The image 'example_dataset.png' was not found in the current directory. Please make sure the file exists.")
+
+
 uploaded_file = st.file_uploader("Upload your dataset (Excel or CSV file)", type=["csv", "xlsx"])
 if uploaded_file:
     if uploaded_file.name.endswith('.xlsx'):
@@ -447,76 +469,97 @@ if uploaded_file:
         len_table = len(table)
         st.write(f"Number of rows: {len_table}")
         st.session_state['len_table'] = len_table
-    
-    st.subheader("2. Select Variables to Check Correlations")
-    corr_columns = st.multiselect("**Select all variables for the Correlation matrix**", options=table.columns)
-    st.session_state['corr_columns'] = corr_columns
+
+    st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
+
+#######################
+# 2. Intelligent Variable Selection
+#######################
+
+    # Fully automated approach with user override options
+    st.subheader("2. Intelligent Variable Selection")
+
+    # Step 1: Select all variables
+    all_vars = st.multiselect("Select all variables of interest (X and Y):", options=table.columns)
+    st.session_state['all_vars'] = all_vars
 
     # Ensure all selected independent variables are numeric
-    non_numeric_columns = [col for col in corr_columns if not pd.api.types.is_numeric_dtype(table[col])]
+    non_numeric_columns = [col for col in all_vars if not pd.api.types.is_numeric_dtype(table[col])]
     if non_numeric_columns:
         st.error(f"The following selected variables contain non-numerical values: **{', '.join(non_numeric_columns)}**. Please select only numeric variables.")
         st.session_state['non_numeric_columns'] = non_numeric_columns
         st.stop()
 
-#######################################
-    # Display Correlation matrix
-    st.subheader("Correlation Matrix")
-    if corr_columns:
-        df_main = table[corr_columns].copy()
-        st.session_state['df_main_raw'] = df_main
-        correlation_matrix(corr_columns, df_main)
+    if all_vars and len(all_vars) >= 3:
+        df_main = table[all_vars].copy()
         df_main = data_preparation(df_main)
-        st.session_state['df_main'] = df_main
-
-        # Check for highly correlated pairs (>0.95)
-        corr_matrix = df_main.corr().abs()
-        high_corr_pairs = []
-        for i in range(len(corr_matrix.columns)):
-            for j in range(i + 1, len(corr_matrix.columns)):
-                col1 = corr_matrix.columns[i]
-                col2 = corr_matrix.columns[j]
-                corr_value = corr_matrix.iloc[i, j]
-                if corr_value > 0.94 and not corr_value == 1.0:
-                    high_corr_pairs.append((col1, col2, corr_value))
-        st.session_state['high_corr_pairs'] = high_corr_pairs
+        
+        # Auto-resolve multicollinearity
+        def auto_resolve_multicollinearity(df, threshold=0.94):
+            """
+            Remove variables with high correlation (positive or negative)
+            """
+            corr_matrix = df.corr().abs()
+            high_corr_pairs = []
+            to_remove = set()
+            
+            for i in range(len(corr_matrix.columns)):
+                for j in range(i + 1, len(corr_matrix.columns)):
+                    if corr_matrix.iloc[i, j] > threshold:
+                        col1, col2 = corr_matrix.columns[i], corr_matrix.columns[j]
+                        high_corr_pairs.append((col1, col2, corr_matrix.iloc[i, j]))
+                        # Remove variable with higher average correlation to all other variables
+                        avg_corr_1 = corr_matrix[col1].mean()
+                        avg_corr_2 = corr_matrix[col2].mean()
+                        to_remove.add(col1 if avg_corr_1 > avg_corr_2 else col2)
+            
+            return high_corr_pairs, to_remove
+        
+        high_corr_pairs, auto_removed = auto_resolve_multicollinearity(df_main)
 
         if high_corr_pairs:
-            st.warning("The following variable pairs have a correlation coefficient greater than 0.94. Please consider removing one of each pair to avoid multicollinearity:")
-            for col1, col2, corr_value in high_corr_pairs:
-                st.write(f"**{col1}** and **{col2}**: {corr_value:.2f}")
+            st.warning(f"Detected {len(high_corr_pairs)} multicollinear pairs with a correlation higher than 0.94 or lower than -0.94. Auto-removing: {', '.join(auto_removed)}")
 
-#######################################
-        # Allow user to finalize the independent variables (X) and dependent variable (Y) after viewing the correlation matrix
-        st.subheader("3. Choose Final Variables for Selection Analysis")
+            # Allow user to customize
+            with st.expander("Customize multicollinearity resolution"):
+                custom_removed = st.multiselect(
+                    "Override auto-selection (choose variables to remove):",
+                    options=all_vars,
+                    default=list(auto_removed)
+                )
+                auto_removed = set(custom_removed)
 
-        # Select dependent variable (Y)
-        y_column = st.selectbox("Select the dependent variable (Y) for your analysis:", options=corr_columns, key='y_column')
+                # Update df_main after custom removal
+                df_temp = df_main.drop(columns=auto_removed)
+                high_corr_pairs_updated, _ = auto_resolve_multicollinearity(df_temp)
 
-        # Allow user to exclude variables from analysis (besides Y)
-        exclude_vars = st.multiselect(
-            "Select variables (X) to exclude from your analysis (besides Y):”. :",
-            options=[col for col in corr_columns if col != y_column],
-            key='exclude_vars'
-        )
+                st.write("**Detected pairs (after removal):**")
+                if high_corr_pairs_updated:
+                    for col1, col2, corr in high_corr_pairs_updated:
+                        st.write(f"• {col1} ↔ {col2}: {corr:.3f}")
+                else:
+                    st.write("No remaining multicollinear pairs detected.")
 
-        # Select independent variables (X): all from corr_columns minus Y and excluded vars
-        x_columns = [col for col in corr_columns if col != y_column and col not in exclude_vars]
+        # Final variables
+        final_vars = [col for col in all_vars if col not in auto_removed]
+        
+        st.success(f"✅ Final variable set: {len(final_vars)} variables")
+        st.session_state['final_vars'] = final_vars
+        st.markdown("---")
+
+        # Introduce and show correlation matrix for final variables
+        st.subheader("Correlation Matrix of Selected Variables")
         st.markdown(
-            f"**Selected independent variables (X):**<br>"
-            + ", ".join([f"`{col}`" for col in x_columns]),
-            unsafe_allow_html=True
+            "The correlation matrix below shows the pairwise relationships between your remaining selected variables. "
+            "High absolute values (close to 1 or -1) indicate strong linear relationships, which may suggest multicollinearity."
         )
+        correlation_matrix(final_vars, df_main[final_vars])
 
-        # Warn if fewer than 2 independent variables are selected
-        if len(x_columns) < 2:
-            st.warning("Please select at least 2 independent variables (X) for analysis.")
-            st.stop()
+        # Select target
+        y_column = st.selectbox("Select target variable:", options=final_vars)
+        x_columns = [col for col in final_vars if col != y_column]
+        st.info(f"**Selected X-variables:** {', '.join(x_columns)}")
 
-        if not y_column or not x_columns:
-            st.warning("Please select a dependent variable (Y) and at least one independent variable (X) for analysis.")
-
-#######################################
         # Drop missing values of x and y
         if y_column and x_columns:
             # Select only the relevant columns and drop rows with missing values
@@ -538,15 +581,21 @@ if uploaded_file:
             st.write(f"Number of rows: {len_df_main_cleaned}")
             st.session_state['len_df_main_cleaned'] = len_df_main_cleaned
 
-        st.subheader("4. Set Number of Features to Select")
+        st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
+
+#######################
+# 3. Settings: Number of Features to Select & Split Dataset
+#######################
+
+        st.subheader("3. Settings: Number of Features & Split Dataset")
         no_features = st.number_input(
-            "Number of features ('n') to select:",
+            "Choose the Number of features to select:",
             min_value=2,
             max_value=len(x_columns),
             value=min(2, len(x_columns)),
-            step=1,
-            key='no_features'
+            step=1
         )
+        st.session_state['no_features'] = no_features
 
         # Let user choose whether to split the dataset
         split_data = st.checkbox("Split dataset into train/test?", value=True, key='split_data')
@@ -565,416 +614,430 @@ if uploaded_file:
                 n_train = n_total - n_test
                 st.write(f"Training Set Size: {n_train} rows")
                 st.write(f"Test Set Size: {n_test} rows")
-            
+
+        proceed = st.button("My settings are correct --> proceed to Model Output Comparison", key='proceed_to_model_output')
         st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
 
 #######################################
-# 5A) SVM linear: splitting/no splitting of dataset
+# 4A) SVM linear: splitting/no splitting of dataset
 #######################################
-        st.header("5. Model Output Comparison – Linear SVM, Nonlinear SVM, and Elastic Net")
-        st.subheader("5A. Support Vector Method (SVM) - Linear Kernel")
-        st.markdown("""
-    **How does the Linear SVM work here?**
-    - The model automatically tunes its key hyperparameters using cross-validation on the training set to find the best settings for your data.
-    - It applies Recursive Feature Elimination (RFE) to select the top *n* features (as specified above) that are most important for predicting the target variable.
-    - The final linear SVM model is then trained using only these selected features.
-    """)
-        st.markdown("<br>", unsafe_allow_html=True)
 
-        # Select features and fit SVM based on user choice
-        if split_data:
-            X_train, X_test, y_train, y_test, X_train_rfe, X_test_rfe, X_rfe, selected_lin_SVM, svr_model = SVM_linear_select_fit(
-                x, y, n_features=no_features, split_data=True, test_size=test_size
-            )
-            st.session_state['X_train'] = X_train
-            st.session_state['X_test'] = X_test
-            st.session_state['y_train'] = y_train
-            st.session_state['y_test'] = y_test
-            st.session_state['X_train_rfe'] = X_train_rfe
-            st.session_state['X_test_rfe'] = X_test_rfe
-            st.session_state['X_rfe'] = X_rfe
-            st.session_state['selected_lin_SVM'] = selected_lin_SVM
-            st.session_state['svr_model'] = svr_model
+        # Check if Section 4 is completed before showing Section 5A
+        if proceed:
+            st.header("4. Model Output Comparison – Linear SVM, Nonlinear SVM, and Elastic Net")
+            st.subheader("4A. Support Vector Method (SVM) - Linear Kernel")
+            st.markdown("""
+            **How does the Linear SVM work here?**
+            - The model automatically tunes its key hyperparameters using cross-validation on the training set to find the best settings for your data.
+            - It applies Recursive Feature Elimination (RFE) to select the top *n* features (as specified above) that are most important for predicting the target variable.
+            - The final linear SVM model is then trained using only these selected features.
+            """)
+            st.markdown("<br>", unsafe_allow_html=True)
 
-            # Extract SVM coefficients
-            SVM_coeff = SVM_coefficients(svr_model)
-            st.session_state['SVM_coeff'] = SVM_coeff
-
-            # Predict SVM results
-            y_pred_SVM = predict_SVM(X_test_rfe, svr_model)
-            st.session_state['y_pred_SVM'] = y_pred_SVM
-
-            # Visualize feature importances
-            visualize_feature_importances_SVM(selected_lin_SVM, SVM_coeff)
-
-            # Plot Actual vs Predicted values (aesthetic style)
-            st.subheader("Actual vs Predicted (Test Set)")
-            plot_pred_actual_results(y_test, y_pred_SVM)
-
-            # Mean Absolute Percentage Error (MAPE)
-            mape = np.mean(np.abs((y_test - y_pred_SVM) / y_test)) * 100
-            st.write(f"Mean Absolute Percentage Error: {mape:.2f}%")
-
-            # Mean Squared Error (MSE)
-            mse = mean_squared_error(y_test, y_pred_SVM)
-            st.write(f"Mean Squared Error: {mse:.2f}")
-
-            # Cross-validation results
-            cross_validation(svr_model, X_rfe, y)
-
-        else:
-            X_train_rfe, selected_lin_SVM, svr_model = SVM_linear_select_fit(
-                x, y, n_features=no_features, split_data=False, test_size=None
-            )
-            st.session_state['X_train_rfe'] = X_train_rfe
-            st.session_state['selected_lin_SVM'] = selected_lin_SVM
-            st.session_state['svr_model'] = svr_model
-
-            # Extract SVM coefficients
-            SVM_coeff = SVM_coefficients(svr_model)
-            st.session_state['SVM_coeff'] = SVM_coeff
-            # Predict SVM results
-            y_pred_SVM = predict_SVM(X_train_rfe, svr_model)
-            st.session_state['y_pred_SVM'] = y_pred_SVM
-
-            # Visualize feature importances
-            visualize_feature_importances_SVM(selected_lin_SVM, SVM_coeff)
-
-            # Plot Actual vs Predicted values (aesthetic style)
-            st.subheader("Actual vs Predicted")
-            plot_pred_actual_results(y, y_pred_SVM)
-
-            # Mean Absolute Percentage Error (MAPE)
-            mape = np.mean(np.abs((y - y_pred_SVM) / y)) * 100
-            st.write(f"Mean Absolute Percentage Error: {mape:.2f}%")
-
-            # Mean Squared Error (MSE)
-            mse = mean_squared_error(y, y_pred_SVM)
-            st.write(f"Mean Squared Error: {mse:.2f}")
-
-            # Cross-validation results
-            cross_validation(svr_model, X_train_rfe, y)
-
-
-#######################################
-# 5B) SVM Nonlinear: splitting/no splitting of dataset
-#######################################
-        st.subheader("5B. Support Vector Method (SVM) - Nonlinear Kernel")
-        st.markdown("""
-        **How does the Nonlinear SVM work here?**
-        - The model uses a nonlinear (RBF) kernel to capture complex relationships between features and the target variable.
-        - It automatically tunes its key hyperparameters using cross-validation to find the best settings for your data.
-        - Feature importance is determined using permutation importance: each feature is randomly shuffled, and the decrease in model performance is measured. If shuffling a feature leads to a large drop in accuracy, that feature is considered important.
-        """)
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Select features and fit SVM based on user choice
-        if split_data:
-            X_train, X_test, y_train, y_test, X_train_rfe, X_test_rfe, X_rfe, selected_nl_SVM, svr_nonlinear, perm_importance = SVM_nonlinear_select_fit(
-                x, y, n_features=no_features, split_data=True, test_size=test_size
-            )
-            st.session_state['X_train_nl'] = X_train
-            st.session_state['X_test_nl'] = X_test
-            st.session_state['y_train_nl'] = y_train
-            st.session_state['y_test_nl'] = y_test
-            st.session_state['X_train_rfe_nl'] = X_train_rfe
-            st.session_state['X_test_rfe_nl'] = X_test_rfe
-            st.session_state['X_rfe_nl'] = X_rfe
-            st.session_state['selected_nl_SVM'] = selected_nl_SVM
-            st.session_state['svr_nonlinear'] = svr_nonlinear
-            st.session_state['perm_importance'] = perm_importance
-
-            # Predict SVM results
-            y_pred_SVM = predict_SVM_nonlinear(X_test_rfe, svr_nonlinear)
-            st.session_state['y_pred_SVM_nl'] = y_pred_SVM
-            # Visualize feature importances
-            visualize_feature_nonlinear_SVM(selected_nl_SVM, perm_importance)
-            st.info("Note. The values for the permutation importance scores (y-axis) are purposely not shown. These scores are not directly comparable to the coefficients from the linear SVM or Elastic Net models, as they represent relative feature importance rather than effect size.")
-            
-            # Plot Actual vs Predicted values (aesthetic style)
-            st.subheader("Actual vs Predicted (Test Set)")
-            plot_pred_actual_results(y_test, y_pred_SVM)
-
-            # Mean Absolute Percentage Error (MAPE)
-            mape = np.mean(np.abs((y_test - y_pred_SVM) / y_test)) * 100
-            st.write(f"Mean Absolute Percentage Error: {mape:.2f}%")
-
-            # Mean Squared Error (MSE)
-            mse = mean_squared_error(y_test, y_pred_SVM)
-            st.write(f"Mean Squared Error: {mse:.2f}")
-
-            # Cross-validation results
-            cross_validation(svr_nonlinear, X_rfe, y)
-
-        else:
-            X_train_rfe, selected_nl_SVM, svr_nonlinear, perm_importance = SVM_nonlinear_select_fit(
-                x, y, n_features=no_features, split_data=False, test_size=None
-            )
-            st.session_state['X_train_rfe_nl'] = X_train_rfe
-            st.session_state['selected_nl_SVM'] = selected_nl_SVM
-            st.session_state['svr_nonlinear'] = svr_nonlinear
-            st.session_state['perm_importance'] = perm_importance
-
-            # Predict SVM results
-            y_pred_SVM = predict_SVM_nonlinear(X_train_rfe, svr_nonlinear)
-            st.session_state['y_pred_SVM_nl'] = y_pred_SVM
-            # Visualize feature importances
-            visualize_feature_nonlinear_SVM(selected_nl_SVM, perm_importance)
-
-            # Plot Actual vs Predicted values (aesthetic style)
-            st.subheader("Actual vs Predicted")
-            plot_pred_actual_results(y, y_pred_SVM)
-
-            # Mean Absolute Percentage Error (MAPE)
-            mape = np.mean(np.abs((y - y_pred_SVM) / y)) * 100
-            st.write(f"Mean Absolute Percentage Error: {mape:.2f}%")
-            
-            # Mean Squared Error (MSE)
-            mse = mean_squared_error(y, y_pred_SVM)
-            st.write(f"Mean Squared Error: {mse:.2f}")
-
-            # Cross-validation results
-            cross_validation(svr_nonlinear, X_train_rfe, y)
-
-#######################################
-# 5C) Elastic Net: splitting/no splitting of dataset
-#######################################
-        st.subheader("5C. Elastic Net Regression - Linear")
-        st.markdown("""
-        <b>How does the Elastic Net work here?</b><br>
-        <ul>
-        <li>Elastic Net is a linear regression method that combines both Lasso and Ridge regularization. This enables the model to select important variables by shrinking some coefficients to zero, while also addressing multicollinearity and reducing overfitting.</li>
-        <li>The model automatically tunes the balance between Lasso and Ridge penalties, as well as the overall regularization strength, using cross-validation on the training set. This ensures the final model is both accurate and interpretable for your data.</li>
-        <li><b>The features selected by Elastic Net may differ from those chosen by the Linear SVM (5A)</b>, as Elastic Net can exclude variables by setting their coefficients to zero.</li>
-        </ul>
-        """, unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        # Select features and fit Elastic Net based on user choice
-        if split_data:
-            # Fit Elastic Net on all features and get best estimator
-            X_train, X_test, y_train, y_test, EN_hyperparams, EN_coeff_all, EN_coeff_nonzero, EN_model_all = elastic_net_fit_all(
-                x, y, split_data=True, test_size=test_size
-            )
-            st.session_state['X_train_en'] = X_train
-            st.session_state['X_test_en'] = X_test
-            st.session_state['y_train_en'] = y_train
-            st.session_state['y_test_en'] = y_test
-            st.session_state['EN_hyperparams'] = EN_hyperparams
-            st.session_state['EN_coeff_all'] = EN_coeff_all
-            st.session_state['EN_coeff_nonzero'] = EN_coeff_nonzero
-            st.session_state['EN_model_all'] = EN_model_all
-
-            # Feature selection using RFE with best estimator
-            selected_EN, X_train_rfe, X_test_rfe, X_rfe, EN_model_refit, EN_best_coeff = elastic_fit_select(
-                x, y, EN_hyperparams, X_train, X_test, y_train, n_features=no_features
-            )
-            st.session_state['selected_EN'] = selected_EN
-            st.session_state['X_train_rfe_en'] = X_train_rfe
-            st.session_state['X_test_rfe_en'] = X_test_rfe
-            st.session_state['X_rfe_en'] = X_rfe
-            st.session_state['EN_model_refit'] = EN_model_refit
-            st.session_state['EN_best_coeff'] = EN_best_coeff
-
-            # Predict Elastic Net results
-            y_pred_EN = elastic_predict(X_test_rfe, EN_model_refit)
-            st.session_state['y_pred_EN'] = y_pred_EN
-            # Visualize feature importances
-            visualize_feature_importances_EN(selected_EN, EN_best_coeff)
-
-            # Plot Actual vs Predicted values (aesthetic style)
-            st.subheader("Actual vs Predicted (Test Set)")
-            plot_pred_actual_results(y_test, y_pred_EN)
-
-            # Mean Absolute Percentage Error (MAPE)
-            mape = np.mean(np.abs((y_test - y_pred_EN) / y_test)) * 100
-            st.write(f"Mean Absolute Percentage Error: {mape:.2f}%")
-
-            # Mean Squared Error (MSE)
-            mse = mean_squared_error(y_test, y_pred_EN)
-            st.write(f"Mean Squared Error: {mse:.2f}")
-
-            # Cross-validation results
-            cross_validation(EN_model_refit, X_rfe, y)
-
-        else:
-            # Fit Elastic Net on all features and get best estimator
-            EN_hyperparams, EN_coeff_all, EN_coeff_nonzero, EN_model_all = elastic_net_fit_all(
-                x, y, split_data=False, test_size=None
-            )
-            st.session_state['EN_hyperparams'] = EN_hyperparams
-            st.session_state['EN_coeff_all'] = EN_coeff_all
-            st.session_state['EN_coeff_nonzero'] = EN_coeff_nonzero
-            st.session_state['EN_model_all'] = EN_model_all
-
-            # Feature selection using RFE with best estimator
-            selected_EN, X_train_rfe, EN_model_refit, EN_best_coeff = elastic_fit_select(
-                x, y, EN_hyperparams, n_features=no_features
-            )
-            st.session_state['selected_EN'] = selected_EN
-            st.session_state['X_train_rfe_en'] = X_train_rfe
-            st.session_state['EN_model_refit'] = EN_model_refit
-            st.session_state['EN_best_coeff'] = EN_best_coeff
-
-            # Predict Elastic Net results
-            y_pred_EN = elastic_predict(X_train_rfe, EN_model_refit)
-            st.session_state['y_pred_EN'] = y_pred_EN
-            # Visualize feature importances
-            visualize_feature_importances_EN(selected_EN, EN_best_coeff)
-
-            # Plot Actual vs Predicted values (aesthetic style)
-            st.subheader("Actual vs Predicted")
-            plot_pred_actual_results(y, y_pred_EN)
-
-            # Mean Absolute Percentage Error (MAPE)
-            mape = np.mean(np.abs((y - y_pred_EN) / y)) * 100
-            st.write(f"Mean Absolute Percentage Error: {mape:.2f}%")
-
-            # Mean Squared Error (MSE)
-            mse = mean_squared_error(y, y_pred_EN)
-            st.write(f"Mean Squared Error: {mse:.2f}")
-
-            # Cross-validation results
-            cross_validation(EN_model_refit, X_train_rfe, y)
-
-#######################################
-# 6. Summary of Results and Model Selection
-#######################################
-        st.header("6. Summary of Results and Model Selection")
-        
-        st.markdown("""
-        <div style="background-color:#f8f9fa; padding: 18px; border-radius: 8px; margin-bottom: 18px;">
-        <b>Model Performance Comparison</b><br>
-        The table below summarizes the performance of all three models across key metrics. 
-        Use this comparison to determine which model best fits your data and select the corresponding features for further analysis.
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Collect metrics from session state
-        try:
-            # Get Cross-validation R² scores (recalculate average)
+            # Select features and fit SVM based on user choice
             if split_data:
-                # For split data, use the stored session values and calculate cross-validation
-                cv_scores_linear = cross_val_score(st.session_state['svr_model'], st.session_state['X_rfe'], y, cv=5, scoring='r2')
-                cv_scores_nonlinear = cross_val_score(st.session_state['svr_nonlinear'], st.session_state['X_rfe_nl'], y, cv=5, scoring='r2')
-                cv_scores_en = cross_val_score(st.session_state['EN_model_refit'], st.session_state['X_rfe_en'], y, cv=5, scoring='r2')
-                
-                # Calculate MAPE and MSE for test set
-                mape_linear = np.mean(np.abs((st.session_state['y_test'] - st.session_state['y_pred_SVM']) / st.session_state['y_test'])) * 100
-                mape_nonlinear = np.mean(np.abs((st.session_state['y_test'] - st.session_state['y_pred_SVM_nl']) / st.session_state['y_test'])) * 100
-                mape_en = np.mean(np.abs((st.session_state['y_test'] - st.session_state['y_pred_EN']) / st.session_state['y_test'])) * 100
-                
-                mse_linear = mean_squared_error(st.session_state['y_test'], st.session_state['y_pred_SVM'])
-                mse_nonlinear = mean_squared_error(st.session_state['y_test'], st.session_state['y_pred_SVM_nl'])
-                mse_en = mean_squared_error(st.session_state['y_test'], st.session_state['y_pred_EN'])
+                X_train, X_test, y_train, y_test, X_train_rfe, X_test_rfe, X_rfe, selected_lin_SVM, svr_model = SVM_linear_select_fit(
+                    x, y, n_features=no_features, split_data=True, test_size=test_size
+                )
+                st.session_state['X_train'] = X_train
+                st.session_state['X_test'] = X_test
+                st.session_state['y_train'] = y_train
+                st.session_state['y_test'] = y_test
+                st.session_state['X_train_rfe'] = X_train_rfe
+                st.session_state['X_test_rfe'] = X_test_rfe
+                st.session_state['X_rfe'] = X_rfe
+                st.session_state['selected_lin_SVM'] = selected_lin_SVM
+                st.session_state['svr_model'] = svr_model
+
+                # Extract SVM coefficients
+                SVM_coeff = SVM_coefficients(svr_model)
+                st.session_state['SVM_coeff'] = SVM_coeff
+
+                # Predict SVM results
+                y_pred_SVM = predict_SVM(X_test_rfe, svr_model)
+                st.session_state['y_pred_SVM'] = y_pred_SVM
+
+                # Visualize feature importances
+                visualize_feature_importances_SVM(selected_lin_SVM, SVM_coeff)
+                st.markdown("---")
+
+                # Plot Actual vs Predicted values (aesthetic style)
+                st.subheader("Actual vs Predicted (Test Set)")
+                plot_pred_actual_results(y_test, y_pred_SVM)
+
+                # Mean Absolute Percentage Error (MAPE)
+                mape = np.mean(np.abs((y_test - y_pred_SVM) / y_test)) * 100
+                st.write(f"Mean Absolute Percentage Error: {mape:.2f}%")
+
+                # Mean Squared Error (MSE)
+                mse = mean_squared_error(y_test, y_pred_SVM)
+                st.write(f"Mean Squared Error: {mse:.2f}")
+
+                # Cross-validation results
+                cross_validation(svr_model, X_rfe, y)
+
             else:
-                # For non-split data
-                cv_scores_linear = cross_val_score(st.session_state['svr_model'], st.session_state['X_train_rfe'], y, cv=5, scoring='r2')
-                cv_scores_nonlinear = cross_val_score(st.session_state['svr_nonlinear'], st.session_state['X_train_rfe_nl'], y, cv=5, scoring='r2')
-                cv_scores_en = cross_val_score(st.session_state['EN_model_refit'], st.session_state['X_train_rfe_en'], y, cv=5, scoring='r2')
+                X_train_rfe, selected_lin_SVM, svr_model = SVM_linear_select_fit(
+                    x, y, n_features=no_features, split_data=False, test_size=None
+                )
+                st.session_state['X_train_rfe'] = X_train_rfe
+                st.session_state['selected_lin_SVM'] = selected_lin_SVM
+                st.session_state['svr_model'] = svr_model
+
+                # Extract SVM coefficients
+                SVM_coeff = SVM_coefficients(svr_model)
+                st.session_state['SVM_coeff'] = SVM_coeff
+                # Predict SVM results
+                y_pred_SVM = predict_SVM(X_train_rfe, svr_model)
+                st.session_state['y_pred_SVM'] = y_pred_SVM
+
+                # Visualize feature importances
+                visualize_feature_importances_SVM(selected_lin_SVM, SVM_coeff)
+                st.markdown("---")
+
+                # Plot Actual vs Predicted values (aesthetic style)
+                st.subheader("Actual vs Predicted")
+                plot_pred_actual_results(y, y_pred_SVM)
+
+                # Mean Absolute Percentage Error (MAPE)
+                mape = np.mean(np.abs((y - y_pred_SVM) / y)) * 100
+                st.write(f"Mean Absolute Percentage Error: {mape:.2f}%")
+
+                # Mean Squared Error (MSE)
+                mse = mean_squared_error(y, y_pred_SVM)
+                st.write(f"Mean Squared Error: {mse:.2f}")
+
+                # Cross-validation results
+                cross_validation(svr_model, X_train_rfe, y)
+
+            st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
+
+    #######################################
+    # 4B) SVM Nonlinear: splitting/no splitting of dataset
+    #######################################
+            st.subheader("4B. Support Vector Method (SVM) - Nonlinear Kernel")
+            st.markdown("""
+            **How does the Nonlinear SVM work here?**
+            - The model uses a nonlinear (RBF) kernel to capture complex relationships between features and the target variable.
+            - It automatically tunes its key hyperparameters using cross-validation to find the best settings for your data.
+            - Feature importance is determined using permutation importance: each feature is randomly shuffled, and the decrease in model performance is measured. If shuffling a feature leads to a large drop in accuracy, that feature is considered important.
+            """)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Select features and fit SVM based on user choice
+            if split_data:
+                X_train, X_test, y_train, y_test, X_train_rfe, X_test_rfe, X_rfe, selected_nl_SVM, svr_nonlinear, perm_importance = SVM_nonlinear_select_fit(
+                    x, y, n_features=no_features, split_data=True, test_size=test_size
+                )
+                st.session_state['X_train_nl'] = X_train
+                st.session_state['X_test_nl'] = X_test
+                st.session_state['y_train_nl'] = y_train
+                st.session_state['y_test_nl'] = y_test
+                st.session_state['X_train_rfe_nl'] = X_train_rfe
+                st.session_state['X_test_rfe_nl'] = X_test_rfe
+                st.session_state['X_rfe_nl'] = X_rfe
+                st.session_state['selected_nl_SVM'] = selected_nl_SVM
+                st.session_state['svr_nonlinear'] = svr_nonlinear
+                st.session_state['perm_importance'] = perm_importance
+
+                # Predict SVM results
+                y_pred_SVM = predict_SVM_nonlinear(X_test_rfe, svr_nonlinear)
+                st.session_state['y_pred_SVM_nl'] = y_pred_SVM
+                # Visualize feature importances
+                visualize_feature_nonlinear_SVM(selected_nl_SVM, perm_importance)
+                st.info("Note. The values for the permutation importance scores (y-axis) are purposely not shown. These scores are not directly comparable to the coefficients from the linear SVM or Elastic Net models, as they represent relative feature importance rather than effect size.")
+                st.markdown("---")
+
+                # Plot Actual vs Predicted values (aesthetic style)
+                st.subheader("Actual vs Predicted (Test Set)")
+                plot_pred_actual_results(y_test, y_pred_SVM)
+
+                # Mean Absolute Percentage Error (MAPE)
+                mape = np.mean(np.abs((y_test - y_pred_SVM) / y_test)) * 100
+                st.write(f"Mean Absolute Percentage Error: {mape:.2f}%")
+
+                # Mean Squared Error (MSE)
+                mse = mean_squared_error(y_test, y_pred_SVM)
+                st.write(f"Mean Squared Error: {mse:.2f}")
+
+                # Cross-validation results
+                cross_validation(svr_nonlinear, X_rfe, y)
+
+            else:
+                X_train_rfe, selected_nl_SVM, svr_nonlinear, perm_importance = SVM_nonlinear_select_fit(
+                    x, y, n_features=no_features, split_data=False, test_size=None
+                )
+                st.session_state['X_train_rfe_nl'] = X_train_rfe
+                st.session_state['selected_nl_SVM'] = selected_nl_SVM
+                st.session_state['svr_nonlinear'] = svr_nonlinear
+                st.session_state['perm_importance'] = perm_importance
+
+                # Predict SVM results
+                y_pred_SVM = predict_SVM_nonlinear(X_train_rfe, svr_nonlinear)
+                st.session_state['y_pred_SVM_nl'] = y_pred_SVM
+                # Visualize feature importances
+                visualize_feature_nonlinear_SVM(selected_nl_SVM, perm_importance)
+                st.markdown("---")
+
+                # Plot Actual vs Predicted values (aesthetic style)
+                st.subheader("Actual vs Predicted")
+                plot_pred_actual_results(y, y_pred_SVM)
+
+                # Mean Absolute Percentage Error (MAPE)
+                mape = np.mean(np.abs((y - y_pred_SVM) / y)) * 100
+                st.write(f"Mean Absolute Percentage Error: {mape:.2f}%")
                 
-                # Calculate MAPE and MSE for full dataset
-                mape_linear = np.mean(np.abs((y - st.session_state['y_pred_SVM']) / y)) * 100
-                mape_nonlinear = np.mean(np.abs((y - st.session_state['y_pred_SVM_nl']) / y)) * 100
-                mape_en = np.mean(np.abs((y - st.session_state['y_pred_EN']) / y)) * 100
-                
-                mse_linear = mean_squared_error(y, st.session_state['y_pred_SVM'])
-                mse_nonlinear = mean_squared_error(y, st.session_state['y_pred_SVM_nl'])
-                mse_en = mean_squared_error(y, st.session_state['y_pred_EN'])
+                # Mean Squared Error (MSE)
+                mse = mean_squared_error(y, y_pred_SVM)
+                st.write(f"Mean Squared Error: {mse:.2f}")
+
+                # Cross-validation results
+                cross_validation(svr_nonlinear, X_train_rfe, y)
+
+            st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
+
+    #######################################
+    # 4C) Elastic Net: splitting/no splitting of dataset
+    #######################################
+            st.subheader("4C. Elastic Net Regression - Linear")
+            st.markdown("""
+            <b>How does the Elastic Net work here?</b><br>
+            <ul>
+            <li>Elastic Net is a linear regression method that combines both Lasso and Ridge regularization. This enables the model to select important variables by shrinking some coefficients to zero, while also addressing multicollinearity and reducing overfitting.</li>
+            <li>The model automatically tunes the balance between Lasso and Ridge penalties, as well as the overall regularization strength, using cross-validation on the training set. This ensures the final model is both accurate and interpretable for your data.</li>
+            <li><b>The features selected by Elastic Net may differ from those chosen by the Linear SVM (5A)</b>, as Elastic Net can exclude variables by setting their coefficients to zero.</li>
+            </ul>
+            """, unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # Select features and fit Elastic Net based on user choice
+            if split_data:
+                # Fit Elastic Net on all features and get best estimator
+                X_train, X_test, y_train, y_test, EN_hyperparams, EN_coeff_all, EN_coeff_nonzero, EN_model_all = elastic_net_fit_all(
+                    x, y, split_data=True, test_size=test_size
+                )
+                st.session_state['X_train_en'] = X_train
+                st.session_state['X_test_en'] = X_test
+                st.session_state['y_train_en'] = y_train
+                st.session_state['y_test_en'] = y_test
+                st.session_state['EN_hyperparams'] = EN_hyperparams
+                st.session_state['EN_coeff_all'] = EN_coeff_all
+                st.session_state['EN_coeff_nonzero'] = EN_coeff_nonzero
+                st.session_state['EN_model_all'] = EN_model_all
+
+                # Feature selection using RFE with best estimator
+                selected_EN, X_train_rfe, X_test_rfe, X_rfe, EN_model_refit, EN_best_coeff = elastic_fit_select(
+                    x, y, EN_hyperparams, X_train, X_test, y_train, n_features=no_features
+                )
+                st.session_state['selected_EN'] = selected_EN
+                st.session_state['X_train_rfe_en'] = X_train_rfe
+                st.session_state['X_test_rfe_en'] = X_test_rfe
+                st.session_state['X_rfe_en'] = X_rfe
+                st.session_state['EN_model_refit'] = EN_model_refit
+                st.session_state['EN_best_coeff'] = EN_best_coeff
+
+                # Predict Elastic Net results
+                y_pred_EN = elastic_predict(X_test_rfe, EN_model_refit)
+                st.session_state['y_pred_EN'] = y_pred_EN
+                # Visualize feature importances
+                visualize_feature_importances_EN(selected_EN, EN_best_coeff)
+                st.markdown("---")
+
+                # Plot Actual vs Predicted values (aesthetic style)
+                st.subheader("Actual vs Predicted (Test Set)")
+                plot_pred_actual_results(y_test, y_pred_EN)
+
+                # Mean Absolute Percentage Error (MAPE)
+                mape = np.mean(np.abs((y_test - y_pred_EN) / y_test)) * 100
+                st.write(f"Mean Absolute Percentage Error: {mape:.2f}%")
+
+                # Mean Squared Error (MSE)
+                mse = mean_squared_error(y_test, y_pred_EN)
+                st.write(f"Mean Squared Error: {mse:.2f}")
+
+                # Cross-validation results
+                cross_validation(EN_model_refit, X_rfe, y)
+
+            else:
+                # Fit Elastic Net on all features and get best estimator
+                EN_hyperparams, EN_coeff_all, EN_coeff_nonzero, EN_model_all = elastic_net_fit_all(
+                    x, y, split_data=False, test_size=None
+                )
+                st.session_state['EN_hyperparams'] = EN_hyperparams
+                st.session_state['EN_coeff_all'] = EN_coeff_all
+                st.session_state['EN_coeff_nonzero'] = EN_coeff_nonzero
+                st.session_state['EN_model_all'] = EN_model_all
+
+                # Feature selection using RFE with best estimator
+                selected_EN, X_train_rfe, EN_model_refit, EN_best_coeff = elastic_fit_select(
+                    x, y, EN_hyperparams, n_features=no_features
+                )
+                st.session_state['selected_EN'] = selected_EN
+                st.session_state['X_train_rfe_en'] = X_train_rfe
+                st.session_state['EN_model_refit'] = EN_model_refit
+                st.session_state['EN_best_coeff'] = EN_best_coeff
+
+                # Predict Elastic Net results
+                y_pred_EN = elastic_predict(X_train_rfe, EN_model_refit)
+                st.session_state['y_pred_EN'] = y_pred_EN
+                # Visualize feature importances
+                visualize_feature_importances_EN(selected_EN, EN_best_coeff)
+                st.markdown("---")
+
+                # Plot Actual vs Predicted values (aesthetic style)
+                st.subheader("Actual vs Predicted")
+                plot_pred_actual_results(y, y_pred_EN)
+
+                # Mean Absolute Percentage Error (MAPE)
+                mape = np.mean(np.abs((y - y_pred_EN) / y)) * 100
+                st.write(f"Mean Absolute Percentage Error: {mape:.2f}%")
+
+                # Mean Squared Error (MSE)
+                mse = mean_squared_error(y, y_pred_EN)
+                st.write(f"Mean Squared Error: {mse:.2f}")
+
+                # Cross-validation results
+                cross_validation(EN_model_refit, X_train_rfe, y)
+            st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
+
+    #######################################
+    # 6. Summary of Results and Model Selection
+    #######################################
+            st.header("6. Summary of Results and Model Selection")
             
-            # Create summary dataframe
-            summary_data = {
-                'Model': ['Linear SVM', 'Nonlinear SVM (RBF)', 'Elastic Net'],
-                'Selected Features': [
-                    ', '.join(st.session_state['selected_lin_SVM']),
-                    ', '.join(st.session_state['selected_nl_SVM']),
-                    ', '.join(st.session_state['selected_EN'])
-                ],
-                'Average R² (CV)': [
-                    f"{np.mean(cv_scores_linear):.4f}",
-                    f"{np.mean(cv_scores_nonlinear):.4f}",
-                    f"{np.mean(cv_scores_en):.4f}"
-                ],
-                'MAPE (%)': [
-                    f"{mape_linear:.2f}%",
-                    f"{mape_nonlinear:.2f}%",
-                    f"{mape_en:.2f}%"
-                ],
-                'MSE': [
-                    f"{mse_linear:.2f}",
-                    f"{mse_nonlinear:.2f}",
-                    f"{mse_en:.2f}"
-                ]
-            }
+            st.markdown("""
+            <div style="background-color:#f8f9fa; padding: 18px; border-radius: 8px; margin-bottom: 18px;">
+            <b>Model Performance Comparison</b><br>
+            The table below summarizes the performance of all three models across key metrics. 
+            Use this comparison to determine which model best fits your data and select the corresponding features for further analysis.
+            </div>
+            """, unsafe_allow_html=True)
             
-            summary_df = pd.DataFrame(summary_data)
-            
-            # Display the comparison table
-            st.subheader("📊 Model Performance Summary")
-            st.dataframe(summary_df, use_container_width=True)
-            
-            # Find best model based on R² score
-            r2_scores = [np.mean(cv_scores_linear), np.mean(cv_scores_nonlinear), np.mean(cv_scores_en)]
-            best_model_idx = np.argmax(r2_scores)
-            model_names = ['Linear SVM', 'Nonlinear SVM (RBF)', 'Elastic Net']
-            best_model = model_names[best_model_idx]
-            best_r2 = r2_scores[best_model_idx]
-            
-            # Recommendations
-            st.subheader("🎯 Model Selection Recommendation")
-            
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                if best_r2 > 0.7:
-                    st.success(f"**Recommended Model: {best_model}** (R² = {best_r2:.4f})")
-                    st.write("✅ This model shows strong predictive performance for your dataset.")
-                elif best_r2 > 0.5:
-                    st.warning(f"**Recommended Model: {best_model}** (R² = {best_r2:.4f})")
-                    st.write("⚠️ This model shows moderate predictive performance. Consider feature engineering or data quality improvements.")
+            # Collect metrics from session state
+            try:
+                # Get Cross-validation R² scores (recalculate average)
+                if split_data:
+                    # For split data, use the stored session values and calculate cross-validation
+                    cv_scores_linear = cross_val_score(st.session_state['svr_model'], st.session_state['X_rfe'], y, cv=5, scoring='r2')
+                    cv_scores_nonlinear = cross_val_score(st.session_state['svr_nonlinear'], st.session_state['X_rfe_nl'], y, cv=5, scoring='r2')
+                    cv_scores_en = cross_val_score(st.session_state['EN_model_refit'], st.session_state['X_rfe_en'], y, cv=5, scoring='r2')
+                    
+                    # Calculate MAPE and MSE for test set
+                    mape_linear = np.mean(np.abs((st.session_state['y_test'] - st.session_state['y_pred_SVM']) / st.session_state['y_test'])) * 100
+                    mape_nonlinear = np.mean(np.abs((st.session_state['y_test'] - st.session_state['y_pred_SVM_nl']) / st.session_state['y_test'])) * 100
+                    mape_en = np.mean(np.abs((st.session_state['y_test'] - st.session_state['y_pred_EN']) / st.session_state['y_test'])) * 100
+                    
+                    mse_linear = mean_squared_error(st.session_state['y_test'], st.session_state['y_pred_SVM'])
+                    mse_nonlinear = mean_squared_error(st.session_state['y_test'], st.session_state['y_pred_SVM_nl'])
+                    mse_en = mean_squared_error(st.session_state['y_test'], st.session_state['y_pred_EN'])
                 else:
-                    st.error(f"**Best Available Model: {best_model}** (R² = {best_r2:.4f})")
-                    st.write("❌ All models show poor predictive performance. Consider revisiting your feature selection, data quality, or target variable.")
-            
-            with col2:
-                # Display selected features for best model
-                if best_model_idx == 0:
-                    best_features = st.session_state['selected_lin_SVM']
-                elif best_model_idx == 1:
-                    best_features = st.session_state['selected_nl_SVM']
-                else:
-                    best_features = st.session_state['selected_EN']
+                    # For non-split data
+                    cv_scores_linear = cross_val_score(st.session_state['svr_model'], st.session_state['X_train_rfe'], y, cv=5, scoring='r2')
+                    cv_scores_nonlinear = cross_val_score(st.session_state['svr_nonlinear'], st.session_state['X_train_rfe_nl'], y, cv=5, scoring='r2')
+                    cv_scores_en = cross_val_score(st.session_state['EN_model_refit'], st.session_state['X_train_rfe_en'], y, cv=5, scoring='r2')
+                    
+                    # Calculate MAPE and MSE for full dataset
+                    mape_linear = np.mean(np.abs((y - st.session_state['y_pred_SVM']) / y)) * 100
+                    mape_nonlinear = np.mean(np.abs((y - st.session_state['y_pred_SVM_nl']) / y)) * 100
+                    mape_en = np.mean(np.abs((y - st.session_state['y_pred_EN']) / y)) * 100
+                    
+                    mse_linear = mean_squared_error(y, st.session_state['y_pred_SVM'])
+                    mse_nonlinear = mean_squared_error(y, st.session_state['y_pred_SVM_nl'])
+                    mse_en = mean_squared_error(y, st.session_state['y_pred_EN'])
                 
-                st.markdown("**Selected Features:**")
-                for feature in best_features:
-                    st.write(f"• {feature}")
-            
-            # Additional insights
-            st.subheader("💡 Key Insights")
-            
-            # Compare linear vs nonlinear performance
-            linear_avg = (r2_scores[0] + r2_scores[2]) / 2  # Average of linear models
-            nonlinear_r2 = r2_scores[1]
-            
-            if nonlinear_r2 > linear_avg + 0.1:
-                st.info("🔄 **Nonlinear patterns detected**: The nonlinear SVM significantly outperforms linear models, suggesting complex relationships in your data. Consider using nonlinear models for final predictions.")
-            elif linear_avg > nonlinear_r2 + 0.1:
-                st.info("📈 **Linear relationships dominate**: Linear models perform better, indicating your data follows mostly linear patterns. Linear models may be more interpretable for your use case.")
-            else:
-                st.info("⚖️ **Mixed patterns**: Linear and nonlinear models perform similarly, suggesting your data contains both linear and nonlinear relationships.")
-            
-            # Feature consistency check
-            feature_sets = [set(st.session_state['selected_lin_SVM']), 
-                          set(st.session_state['selected_nl_SVM']), 
-                          set(st.session_state['selected_EN'])]
-            
-            common_features = feature_sets[0].intersection(feature_sets[1]).intersection(feature_sets[2])
-            if len(common_features) > 0:
-                st.success(f"🎯 **Consistent feature selection**: The following features were selected by all models: {', '.join(common_features)}")
-            else:
-                st.warning("⚠️ **Inconsistent feature selection**: Different models selected different features. This suggests feature importance may vary depending on the modeling approach.")
-            
-        except Exception as e:
-            st.error(f"Unable to generate summary table. Please ensure all models have been run successfully. Error: {str(e)}")
+                # Create summary dataframe
+                summary_data = {
+                    'Model': ['Linear SVM', 'Nonlinear SVM (RBF)', 'Elastic Net'],
+                    'Selected Features': [
+                        ', '.join(st.session_state['selected_lin_SVM']),
+                        ', '.join(st.session_state['selected_nl_SVM']),
+                        ', '.join(st.session_state['selected_EN'])
+                    ],
+                    'Average R² (CV)': [
+                        f"{np.mean(cv_scores_linear):.4f}",
+                        f"{np.mean(cv_scores_nonlinear):.4f}",
+                        f"{np.mean(cv_scores_en):.4f}"
+                    ],
+                    'MAPE (%)': [
+                        f"{mape_linear:.2f}%",
+                        f"{mape_nonlinear:.2f}%",
+                        f"{mape_en:.2f}%"
+                    ],
+                    'MSE': [
+                        f"{mse_linear:.2f}",
+                        f"{mse_nonlinear:.2f}",
+                        f"{mse_en:.2f}"
+                    ]
+                }
+                
+                summary_df = pd.DataFrame(summary_data)
+                
+                # Display the comparison table
+                st.subheader("📊 Model Performance Summary")
+                st.dataframe(summary_df, use_container_width=True)
+                
+                # Find best model based on R² score
+                r2_scores = [np.mean(cv_scores_linear), np.mean(cv_scores_nonlinear), np.mean(cv_scores_en)]
+                best_model_idx = np.argmax(r2_scores)
+                model_names = ['Linear SVM', 'Nonlinear SVM (RBF)', 'Elastic Net']
+                best_model = model_names[best_model_idx]
+                best_r2 = r2_scores[best_model_idx]
+                
+                # Recommendations
+                st.subheader("🎯 Model Selection Recommendation")
+                
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    if best_r2 > 0.7:
+                        st.success(f"**Recommended Model: {best_model}** (R² = {best_r2:.4f})")
+                        st.write("✅ This model shows strong predictive performance for your dataset.")
+                    elif best_r2 > 0.5:
+                        st.warning(f"**Recommended Model: {best_model}** (R² = {best_r2:.4f})")
+                        st.write("⚠️ This model shows moderate predictive performance. Consider feature engineering or data quality improvements.")
+                    else:
+                        st.error(f"**Best Available Model: {best_model}** (R² = {best_r2:.4f})")
+                        st.write("❌ All models show poor predictive performance. Consider revisiting your feature selection, data quality, or target variable.")
+                
+                with col2:
+                    # Display selected features for best model
+                    if best_model_idx == 0:
+                        best_features = st.session_state['selected_lin_SVM']
+                    elif best_model_idx == 1:
+                        best_features = st.session_state['selected_nl_SVM']
+                    else:
+                        best_features = st.session_state['selected_EN']
+                    
+                    st.markdown("**Selected Features:**")
+                    for feature in best_features:
+                        st.write(f"• {feature}")
+                
+                # Additional insights
+                st.subheader("💡 Key Insights")
+                
+                # Compare linear vs nonlinear performance
+                linear_avg = (r2_scores[0] + r2_scores[2]) / 2  # Average of linear models
+                nonlinear_r2 = r2_scores[1]
+                
+                if nonlinear_r2 > linear_avg + 0.1:
+                    st.info("🔄 **Nonlinear patterns detected**: The nonlinear SVM significantly outperforms linear models, suggesting complex relationships in your data. Consider using nonlinear models for final predictions.")
+                elif linear_avg > nonlinear_r2 + 0.1:
+                    st.info("📈 **Linear relationships dominate**: Linear models perform better, indicating your data follows mostly linear patterns. Linear models may be more interpretable for your use case.")
+                else:
+                    st.info("⚖️ **Mixed patterns**: Linear and nonlinear models perform similarly, suggesting your data contains both linear and nonlinear relationships.")
+                
+                # Feature consistency check
+                feature_sets = [set(st.session_state['selected_lin_SVM']), 
+                            set(st.session_state['selected_nl_SVM']), 
+                            set(st.session_state['selected_EN'])]
+                
+                common_features = feature_sets[0].intersection(feature_sets[1]).intersection(feature_sets[2])
+                if len(common_features) > 0:
+                    st.success(f"🎯 **Consistent feature selection**: The following features were selected by all models: {', '.join(common_features)}")
+                else:
+                    st.warning("⚠️ **Inconsistent feature selection**: Different models selected different features. This suggests feature importance may vary depending on the modeling approach.")
+                
+            except Exception as e:
+                st.error(f"Unable to generate summary table. Please ensure all models have been run successfully. Error: {str(e)}")
 
 
 

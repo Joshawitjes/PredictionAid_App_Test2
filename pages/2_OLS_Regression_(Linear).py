@@ -5,6 +5,7 @@ import pandas as pd
 import statsmodels.api as sm
 from sklearn.metrics import mean_squared_error
 import numpy as np
+import os
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -22,9 +23,26 @@ st.set_page_config(page_title="OLS Regression (Linear)")
 ########################################################################
 # Page 2: OLS Regression
 ########################################################################
-
 st.markdown("## 📊 OLS Regression (Linear) for Prediction")
-st.markdown("Upload your dataset and predict outcomes using multivariable linear regression.")
+st.markdown("""
+Upload your dataset to perform multivariable linear regression and make predictions.
+
+**How should your dataset look?**
+- The first row must contain clear column names (e.g., `Length`, `Price`).
+- Each following row should represent a single observation (e.g., a project, a client, etc.).
+- All columns you want to use for regression must contain only numerical values (no text, dates, or mixed types).
+- Avoid empty rows or columns, and ensure there are no merged cells.
+- The file should be in Excel (`.xlsx`) or CSV (`.csv`) format.
+
+**Example of a well-formatted dataset:**
+""")
+
+# Use relative path to the image file
+image1 = "example_dataset.png"
+if os.path.exists(image1):
+    st.image(image1, width=500, use_container_width=False)
+else:
+    st.warning("The image 'example_dataset.png' was not found in the current directory. Please make sure the file exists.")
 
 # Upload dataset
 uploaded_file = st.file_uploader("Upload your dataset (Excel or CSV file):", type=["xlsx", "csv"])
@@ -63,7 +81,13 @@ if uploaded_file:
             st.dataframe(table)
             len_table = len(table)
             st.write(f"Number of rows: {len_table}")
-        
+
+        st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
+
+#######################
+# 1.  Regression Summary
+#######################
+
         # Prepare data
         y = table[y_column]
         x = table[x_columns]
@@ -84,8 +108,12 @@ if uploaded_file:
         })
         summary_df["Significant"] = summary_df["P>|t|"].apply(lambda p: "Yes" if p < 0.05 else "No")
         st.dataframe(summary_df.style.format(precision=3))
+        st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
 
-##################
+#######################
+# 2. Model Performance
+#######################
+
         # Model Performance - User-Friendly Version
         st.subheader("2. How Well Does Your Model Perform?")
         
@@ -291,7 +319,9 @@ if uploaded_file:
 
         st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
 
-######################
+#######################
+# 3. Actual vs Predicted Values
+#######################
 
         # Plot actual vs predicted values with confidence bands
         st.subheader("3. Actual vs Predicted Values")
@@ -344,15 +374,30 @@ if uploaded_file:
         cbar.set_label('Predicted Value Intensity')
         st.pyplot(fig)
 
+        st.markdown("---")
+
         # Add predictions and residuals to the dataset dynamically based on selected y_column
         st.subheader("Predictions and Residuals")
-        table[f"Predicted_{y_column}_OLS"] = predicted_values
-        table[f"Residual_{y_column}_OLS"] = table[y_column] - table[f"Predicted_{y_column}_OLS"]
-        table[f"Residual_{y_column}_OLS_%"] = (table[f"Residual_{y_column}_OLS"] / table[y_column]) * 100
-        st.dataframe(table[[f"{y_column}", f"Predicted_{y_column}_OLS", f"Residual_{y_column}_OLS", f"Residual_{y_column}_OLS_%"]])
+        st.markdown(
+            f"""
+            This table shows, for each row in your dataset:
+            - The actual value of **{y_column}**
+            - The predicted value from the Random Forest model
+            - The residual (difference between actual and predicted)
+            - The residual as a percentage of the actual value
+
+            Use this table to identify where the model performs well or where it makes larger errors.
+            """
+        )
+        table[f"Predicted_{y_column}"] = predicted_values
+        table[f"Residual_{y_column}"] = table[y_column] - table[f"Predicted_{y_column}"]
+        table[f"Residual_{y_column}_%"] = (table[f"Residual_{y_column}"] / table[y_column]) * 100
+        st.dataframe(table[[f"{y_column}", f"Predicted_{y_column}", f"Residual_{y_column}", f"Residual_{y_column}_%"]])
+
+        st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
 
 #######################
-# Make your own prediction
+# 4. Make your own prediction
 #######################
 
         # Input fields for prediction

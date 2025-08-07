@@ -57,11 +57,7 @@ Advanced nonlinear modeling using Random Forest regression. This tool handles co
 
 # To do:
 ############
-# Correlatie matrix filter automatiseren
-# Uitleg bij Predictions/Residuals
-# uitleg plaatje met wat format voor dataset hoort te zijn
 # Recommendation RF ies versoepelen, geeft nu constant not reliable aan
-# OLS en RF alignen in layout
 # Readme file improven
 
 # Manual aanpassen hier en daar --> invoegen in app

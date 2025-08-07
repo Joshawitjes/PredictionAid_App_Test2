@@ -16,6 +16,26 @@ from PIL import Image
 
 st.header("📈 Random Forest AI (Nonlinear)")
 st.write("Upload your dataset and predict outcomes using Random Forest regression.")
+st.markdown("""
+Upload your dataset to perform multivariable linear regression and make predictions.
+
+**How should your dataset look?**
+- The first row must contain clear column names (e.g., `Length`, `Price`).
+- Each following row should represent a single observation (e.g., a project, a client, etc.).
+- All columns you want to use for regression must contain only numerical values (no text, dates, or mixed types).
+- Avoid empty rows or columns, and ensure there are no merged cells.
+- The file should be in Excel (`.xlsx`) or CSV (`.csv`) format.
+
+**Example of a well-formatted dataset:**
+""")
+
+# Use relative path to the image file
+image1 = "example_dataset.png"
+if os.path.exists(image1):
+    st.image(image1, width=500, use_container_width=False)
+else:
+    st.warning("The image 'example_dataset.png' was not found in the current directory. Please make sure the file exists.")
+
 
 # File upload
 uploaded_file = st.file_uploader("Upload your dataset (Excel or CSV file)", type=["csv", "xlsx"])
@@ -54,6 +74,11 @@ if uploaded_file:
             st.dataframe(table)
             len_table = len(table)
             st.write(f"Number of rows: {len_table}")
+        st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
+
+#######################
+# 1. Feature Importances
+#######################
 
         # Prepare data
         y = table[y_column]
@@ -62,7 +87,6 @@ if uploaded_file:
         # Split dataset
         x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.20, random_state=42)
 
-#######################################
         # Initialize Random Forest model
         rf = RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42)
 
@@ -90,56 +114,14 @@ if uploaded_file:
         ax.set_axisbelow(True)
         st.pyplot(fig)
         st.caption("⚠️ Note: The x-axis represents the Importance Score, which is NOT equivalent to the coefficients from a regression analysis.")
+        st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
 
-#######################################
-        # Plot Actual vs Predicted values with confidence intervals
-        st.subheader("2. Actual vs Predicted (Test Set)")
+#######################
+# 2. Model Performance
+#######################
 
-        # Calculate confidence intervals for each prediction in the test set
-        # Use the distribution of predictions from all trees for each sample
-        all_tree_preds_test = np.stack([tree.predict(x_test) for tree in rf_model.estimators_], axis=1)
-        mean_preds = np.mean(all_tree_preds_test, axis=1)
-        lower_bounds = np.percentile(all_tree_preds_test, 2.5, axis=1)
-        upper_bounds = np.percentile(all_tree_preds_test, 97.5, axis=1)
-
-        # Create figure in aesthetic style
-        sns.set_style("whitegrid")
-        fig, ax = plt.subplots(figsize=(8, 6))
-        scatter = ax.scatter(
-            y_test, y_test_pred,
-            alpha=0.6,
-            edgecolor='k',
-            linewidth=0.5,
-            s=70,
-            c=y_test_pred,
-            cmap='viridis',
-            label='Predictions'
-        )
-        # Plot confidence intervals as vertical lines
-        for i in range(len(y_test)):
-            ax.plot([y_test.iloc[i], y_test.iloc[i]], [lower_bounds[i], upper_bounds[i]], color='gray', alpha=0.5, linewidth=1)
-
-        ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2, label='Perfect Prediction')
-        ax.set_title('Actual vs Predicted Values (Test Set) with 95% Confidence Intervals', fontsize=16, weight='bold', pad=15)
-        ax.set_xlabel('Actual Values', fontsize=12)
-        ax.set_ylabel('Predicted Values', fontsize=12)
-        ax.legend(loc='upper left')
-        ax.grid(True, linestyle='--', alpha=0.6)
-        cbar = fig.colorbar(scatter, ax=ax)
-        cbar.set_label('Predicted Value Intensity')
-        st.pyplot(fig)
-        st.caption("Gray vertical lines show the 95% confidence interval for each prediction, estimated from the distribution of predictions across all trees in the Random Forest.")
-
-        # Add predictions and residuals to the dataset dynamically based on selected y_column
-        st.subheader("Predictions and Residuals")
-        table[f"Predicted_{y_column}_RF"] = rf_model.predict(x)
-        table[f"Residual_{y_column}_RF"] = table[y_column] - table[f"Predicted_{y_column}_RF"]
-        table[f"Residual_{y_column}_RF_%"] = (table[f"Residual_{y_column}_RF"] / table[y_column]) * 100
-        st.dataframe(table[[f"{y_column}", f"Predicted_{y_column}_RF", f"Residual_{y_column}_RF", f"Residual_{y_column}_RF_%"]])
-
-#######################################
         # Model Performance - User-Friendly Version
-        st.subheader("3. How Well Does Your Model Perform?")
+        st.subheader("2. How Well Does Your Model Perform?")
 
         # Calculate all metrics
         mse_test = mean_squared_error(y_test, y_test_pred)
@@ -308,6 +290,7 @@ if uploaded_file:
 
         # Visual performance indicator
         st.markdown("---")
+
         st.markdown("### 📊 **Performance Visualization**")
 
         # Create a simple performance gauge
@@ -334,21 +317,12 @@ if uploaded_file:
             </div>
         </div>
         """, unsafe_allow_html=True)
-
-        st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
-
+        st.markdown("---")
 #######################################
         # Cross-validation
         st.subheader("Cross-Validation Results")
         cv_scores = cross_val_score(rf, x_train, y_train, cv=5, scoring='r2')
         avg_cv_score = np.mean(cv_scores)
-        with st.expander("R² Scores (5-Fold Cross-Validation) ℹ️"):
-            # Display R² scores
-            st.table(pd.DataFrame({
-                "Fold": [f"Fold {i+1}" for i in range(len(cv_scores))],
-                "R² Score": [f"{score:.4f}" for score in cv_scores]
-            }))
-        st.write(f"**Average R² Score:** {avg_cv_score:.4f}")
 
         # Adjusted R-squared calculation
         n = x_train.shape[0]  # Number of observations in the training dataset
@@ -362,9 +336,71 @@ if uploaded_file:
                 "Adjusted R² Score": [f"{score:.4f}" for score in adjusted_r2_scores]
             }))
         st.write(f"**Average Adjusted R² Score:** {avg_adjusted_r2:.4f}")
+        st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
 
 #######################
-# Make your own prediction
+# 3. Actual vs Predicted
+#######################
+        # Plot Actual vs Predicted values with confidence intervals
+        st.subheader("3. Actual vs Predicted (Test Set)")
+
+        # Calculate confidence intervals for each prediction in the test set
+        # Use the distribution of predictions from all trees for each sample
+        all_tree_preds_test = np.stack([tree.predict(x_test) for tree in rf_model.estimators_], axis=1)
+        mean_preds = np.mean(all_tree_preds_test, axis=1)
+        lower_bounds = np.percentile(all_tree_preds_test, 2.5, axis=1)
+        upper_bounds = np.percentile(all_tree_preds_test, 97.5, axis=1)
+
+        # Create figure in aesthetic style
+        sns.set_style("whitegrid")
+        fig, ax = plt.subplots(figsize=(8, 6))
+        scatter = ax.scatter(
+            y_test, y_test_pred,
+            alpha=0.6,
+            edgecolor='k',
+            linewidth=0.5,
+            s=70,
+            c=y_test_pred,
+            cmap='viridis',
+            label='Predictions'
+        )
+        # Plot confidence intervals as vertical lines
+        for i in range(len(y_test)):
+            ax.plot([y_test.iloc[i], y_test.iloc[i]], [lower_bounds[i], upper_bounds[i]], color='gray', alpha=0.5, linewidth=1)
+
+        ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2, label='Perfect Prediction')
+        ax.set_title('Actual vs Predicted Values (Test Set) with 95% Confidence Intervals', fontsize=16, weight='bold', pad=15)
+        ax.set_xlabel('Actual Values', fontsize=12)
+        ax.set_ylabel('Predicted Values', fontsize=12)
+        ax.legend(loc='upper left')
+        ax.grid(True, linestyle='--', alpha=0.6)
+        cbar = fig.colorbar(scatter, ax=ax)
+        cbar.set_label('Predicted Value Intensity')
+        st.pyplot(fig)
+        st.caption("Gray vertical lines show the 95% confidence interval for each prediction, estimated from the distribution of predictions across all trees in the Random Forest.")
+        st.markdown("---")
+
+        # Add predictions and residuals to the dataset dynamically based on selected y_column
+        st.subheader("Predictions and Residuals")
+        st.markdown(
+            f"""
+            This table shows, for each row in your dataset:
+            - The actual value of **{y_column}**
+            - The predicted value from the Random Forest model
+            - The residual (difference between actual and predicted)
+            - The residual as a percentage of the actual value
+
+            Use this table to identify where the model performs well or where it makes larger errors.
+            """
+        )
+        table[f"Predicted_{y_column}"] = rf_model.predict(x)
+        table[f"Residual_{y_column}"] = table[y_column] - table[f"Predicted_{y_column}"]
+        table[f"Residual_{y_column}_%"] = (table[f"Residual_{y_column}"] / table[y_column]) * 100
+        st.dataframe(table[[f"{y_column}", f"Predicted_{y_column}", f"Residual_{y_column}", f"Residual_{y_column}_%"]])
+        st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
+
+#######################
+# 4. Make your own prediction
 #######################
 
         # Input fields for prediction
