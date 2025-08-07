@@ -24,15 +24,16 @@ with col2:
 st.title("PredictionAID App")
 
 st.markdown("""
-Use the sidebar to navigate between the different available tools in the PredictionAID App. The App contains three specialized tools for predictive modeling and variable analysis:
+Use the sidebar to navigate between the different available tools in the PredictionAID App. The App contains several specialized tools for predictive modeling, variable analysis, and correlation exploration:
 
-## 🔍 **Tool for Variable Selection (Investigative)**
-This comprehensive tool helps you identify the most important variables for prediction by comparing three different modeling approaches:
+## 🔍 **Tool for Variable Selection & Correlation Analysis (Investigative)**
+This comprehensive tool helps you identify the most important variables for prediction and understand relationships within your data by providing:
+- **Correlation Analysis** - Visualize and quantify correlations between variables to detect multicollinearity and key relationships
 - **Linear SVM Regression** - Identifies linear relationships between features and target variables
 - **Nonlinear SVM Regression (RBF kernel)** - Captures complex, nonlinear patterns in your data  
 - **Elastic Net Regression** - Combines Lasso and Ridge penalties for robust variable selection
 
-The tool provides performance comparisons, feature importance rankings, and recommendations for which variables to use in your final predictive models. **Start here** to understand your data and select the best features before moving to the prediction tools.
+The tool provides performance comparisons, feature importance rankings, correlation heatmaps, and recommendations for which variables to use in your final predictive models. **Start here** to understand your data and select the best features before moving to the prediction tools.
 
 ## 📊 **OLS Regression (Linear)**
 Perform Ordinary Least Squares regression analysis for linear relationships. Upload your dataset, select dependent and independent variables, and get:
@@ -49,17 +50,9 @@ Advanced nonlinear modeling using Random Forest regression. This tool handles co
 - Visual decision tree examples to understand the modeling process
 
 ## 💡 **Recommended Workflow**
-1. **Start with the Variable Selection Tool** to identify the most important features in your dataset
+1. **Start with the Variable Selection (& Correlation Analysis Tool)** to identify the most important features and understand variable relationships in your dataset
 2. **Use OLS Regression** if your data shows primarily linear relationships
 3. **Use Random Forest** if your data contains complex, nonlinear patterns
 4. Compare results between linear and nonlinear approaches to find the best model for your specific use case
 """)
 
-# To do:
-############
-# Recommendation RF ies versoepelen, geeft nu constant not reliable aan
-# Readme file improven
-
-# Manual aanpassen hier en daar --> invoegen in app
-# Manual voor OLS en RF?
-# Woensdag: deployen via Sietse/algemene account --> last minute mijn nieuwste code in Feadship

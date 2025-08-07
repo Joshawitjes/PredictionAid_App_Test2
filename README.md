@@ -10,7 +10,6 @@ git clone https://github.com/De-Voogt-Naval-Architects/engineering_spec_predicti
 # Navigate to the correct subfolder with the PredictionAid_App
 cd engineering_spec_predictiontool/PredictionAid_App
 
-
 ### To actually run the file: 
 ```bash
 
@@ -24,7 +23,7 @@ venv\Scripts\activate # should give (venv)
 pip install -r requirements.txt
 
 # Run streamlit app from within the Tool_App folder
-python -m streamlit run Main.py
+python -m streamlit run Home.py
 ```
 
 ## Requirements
@@ -53,8 +52,9 @@ PredictionAid_App/
 ├── __init__.py
 ├── DesignAID_logo.png
 ├── DeVoogt_logo.jpg
+├── example_dataset.png
 ├── Feadship_logo.jpg
-├── Main.py              # Main Streamlit application
+├── Home.py              # Main Streamlit application
 ├── README.md
 ├── requirements.txt         # Python dependencies  
 └── runtime.txt          
@@ -62,10 +62,21 @@ PredictionAid_App/
 
 ## Features
 
-- **OLS Regression (Linear)**: Perform linear regression analysis
-- **Random Forest AI (NonLinear)**: Advanced non-linear modeling
-- **Variable Selection Tool**: Analyze variable importance
-- **Correlation Matrix**: Visualize variable relationships
+### Page 1 **Variable Selection Tool**
+- **Multi-Model Comparison** - Linear SVM, Nonlinear SVM (RBF), and Elastic Net
+- **Auto Multicollinearity Removal** - Removes variables with |r| > 0.94
+- **Interactive Correlation Matrix** - Visual relationship analysis
+- **Smart Recommendations** - Determines linear vs nonlinear data patterns
+
+### Page 2 **OLS Regression**
+- **Statistical Analysis** - R², MAPE, p-values, confidence intervals
+- **Interactive Predictions** - Range-validated inputs with tooltips
+- **Visual Diagnostics** - Actual vs predicted with confidence bands
+
+### Page 3 **Random Forest AI**
+- **Ensemble Learning** - 100+ trees with 5-fold cross-validation
+- **Feature Importance** - Tree-based variable ranking
+- **Bootstrap Intervals** - Uncertainty quantification via tree agreement
 
 ## Development
 
