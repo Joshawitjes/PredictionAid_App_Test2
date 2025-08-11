@@ -467,43 +467,51 @@ if uploaded_file:
             with col2:
                 st.warning(f"**{confidence_level}% Prediction Interval:**\n{pred_lower:.2f} to {pred_upper:.2f}")
                 st.caption("Range where we expect individual predictions to fall")
-
-            # Enhanced reliability assessment
+                    
+            # Enhanced reliability assessment with better thresholds
             prediction_interval_width = pred_upper - pred_lower
             confidence_interval_width = conf_upper - conf_lower
-            
+
             relative_pred_width = (prediction_interval_width / abs(mean_pred)) * 100 if mean_pred != 0 else float('inf')
             relative_conf_width = (confidence_interval_width / abs(mean_pred)) * 100 if mean_pred != 0 else float('inf')
 
-            # Reliability based on prediction interval width and tree agreement
-            tree_agreement = min(max(1 - (tree_std / abs(mean_pred)), 0), 1) if mean_pred != 0 else 0
-            
-            # Additional metrics with more intuitive explanation
+            # Improved tree agreement calculation
+            tree_cv = tree_std / abs(mean_pred) if mean_pred != 0 else float('inf')  # Coefficient of variation
+            tree_agreement = max(0, 1 - tree_cv)  # More intuitive
+
+            # Additional metrics
             col3, col4 = st.columns(2)
             with col3:
                 st.metric("Tree Agreement", f"{tree_agreement:.1%}")
                 st.caption("How much the individual trees agree (higher is better)")
-            
+
             with col4:
                 st.metric("Prediction Range Width", f"{prediction_interval_width:.2f}")
-                st.caption(f"This prediction interval spans approximately {relative_pred_width:.1f}% of the predicted value. A smaller percentage indicates higher precision and model certainty.")
-            
-            # Improved reliability categories and explanations
-            if relative_pred_width < 10 and tree_agreement > 0.85:
+                st.caption(f"Prediction interval spans {relative_pred_width:.1f}% of predicted value")
+
+            # More realistic reliability categories
+            # Use OR logic instead of AND for better assessment
+            if tree_agreement > 0.85 or relative_pred_width < 15:
                 reliability = "🟢 Very High Confidence"
-                reliability_desc = "Predictions are very consistent and the range is narrow."
-            elif relative_pred_width < 20 and tree_agreement > 0.7:
+                reliability_desc = "Excellent model agreement and/or very narrow prediction range."
+            elif tree_agreement > 0.70 or relative_pred_width < 30:
+                reliability = "🟢 High Confidence" 
+                reliability_desc = "Good model consistency with reasonable prediction range."
+            elif tree_agreement > 0.55 or relative_pred_width < 50:
                 reliability = "🟡 Good Confidence"
-                reliability_desc = "Predictions are fairly consistent with a moderate range."
-            elif relative_pred_width < 35 and tree_agreement > 0.5:
-                reliability = "🟠 Some Uncertainty"
-                reliability_desc = "Predictions vary somewhat; consider results as indicative."
-            elif tree_agreement > 0.85:
-                reliability = "🟡 Good Tree Agreement, but Wide Range"
-                reliability_desc = "The trees agree strongly, but the prediction range is wide. The model is consistent, but the data may be noisy or have outliers."
+                reliability_desc = "Acceptable model performance with moderate uncertainty."
+            elif tree_agreement > 0.40 or relative_pred_width < 75:
+                reliability = "🟠 Fair Confidence"
+                reliability_desc = "Some uncertainty present, but predictions are still useful."
             else:
                 reliability = "🔴 Low Confidence"
-                reliability_desc = "Predictions vary widely; results should be interpreted with caution."
+                reliability_desc = "High uncertainty - use predictions with caution."
+
+            # Add model performance context
+            if 'rf_r2' in st.session_state and st.session_state['rf_r2'] > 0.8:
+                if reliability in ["🟠 Fair Confidence", "🔴 Low Confidence"]:
+                    reliability = "🟡 Good Confidence (High R²)"
+                    reliability_desc += f" However, model R² is {st.session_state['rf_r2']:.3f}, indicating good overall fit."
 
             st.markdown(f"**Model Confidence:** {reliability}")
             st.caption(f"{reliability_desc}")
