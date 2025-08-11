@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import base64
 ########################################################################
 # Page 4: Manuals
 ########################################################################
@@ -14,23 +15,30 @@ manual_files = {
     "Random Forest Tool (Page 3)": "manual_RandomForest.pdf"
 }
 
-import base64
-
 for tool, filename in manual_files.items():
     if os.path.exists(filename):
         st.markdown(f"**{tool}:**")
+        
+        # Read PDF file only once
         with open(filename, "rb") as pdf_file:
             pdf_bytes = pdf_file.read()
+        
+        col1, col2 = st.columns([1, 3])
+        
+        with col1:
+            # Download button
             st.download_button(
-                label="Download PDF",
+                label="📥 Download PDF",
                 data=pdf_bytes,
                 file_name=filename,
-                mime="application/pdf"
+                mime="application/pdf",
+                key=f"download_{filename}"  # Unique key for each button
             )
-            pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
-            st.markdown(
-                f'<iframe src="data:application/pdf;base64,{pdf_base64}" width="700" height="500" type="application/pdf"></iframe>',
-                unsafe_allow_html=True
-            )
+        
+        # Show file size info
+        file_size = len(pdf_bytes) / 1024  # KB
+        st.caption(f"📄 File size: {file_size:.1f} KB")
+        
+        st.markdown("---")
     else:
         st.warning(f"Manual for {tool} ('{filename}') not found in the directory. Yet to be added")
