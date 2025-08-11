@@ -1,6 +1,6 @@
 # To run type in terminal
 # from Anaconda Prompt: conda activate tool_app, then code . and then from here the rest
-# python -m streamlit run Home.py or C:\Users\sdv.werkstudent\.conda\envs\tool_app\python.exe -m streamlit run Home.py
+# python -m streamlit run Home.py or C:\YourDirectoryToPython.exe -m streamlit run Home.py
 import streamlit as st
 #from streamlit import __main__
 from PIL import Image
