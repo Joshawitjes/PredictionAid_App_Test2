@@ -492,7 +492,6 @@ if uploaded_file:
 
     if all_vars and len(all_vars) >= 3:
         df_main = table[all_vars].copy()
-        df_main = data_preparation(df_main)
         
         # Auto-resolve multicollinearity
         def auto_resolve_multicollinearity(df, threshold=0.94):
@@ -571,7 +570,6 @@ if uploaded_file:
             # Prepare data
             y = df_main_cleaned[y_column]
             x = df_main_cleaned[x_columns]
-            x = sm.add_constant(x)
             st.session_state['y'] = y
             st.session_state['x'] = x
 
@@ -589,7 +587,7 @@ if uploaded_file:
 
         st.subheader("3. Settings: Number of Features & Split Dataset")
         no_features = st.number_input(
-            "Choose the Number of features to select:",
+            "Choose the number of features to select:",
             min_value=2,
             max_value=len(x_columns),
             value=min(2, len(x_columns)),
@@ -901,9 +899,9 @@ if uploaded_file:
             st.markdown("<hr style='border: 2px solid #bbb;'>", unsafe_allow_html=True)
 
     #######################################
-    # 6. Summary of Results and Model Selection
+    # 5. Summary of Results and Model Selection
     #######################################
-            st.header("6. Summary of Results and Model Selection")
+            st.header("5. Summary of Results and Model Selection")
             
             st.markdown("""
             <div style="background-color:#f8f9fa; padding: 18px; border-radius: 8px; margin-bottom: 18px;">
